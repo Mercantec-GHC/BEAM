@@ -16,6 +16,6 @@ jobs:
         with:
           fqbn: arduino:renesas_uno:unor4wifi
           sketch-paths: |
-            - ./Arduino
+            - ./Controller_Hub
           # libraries: |
           #   - name: WiFiNINA
