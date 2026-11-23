@@ -1,0 +1,20 @@
+@page "/GameSlider"
+@layout CarouselLayout
+@using BEAM.Web.Components.Games
+
+<PageTitle>Game selector | BEAM</PageTitle>
+
+<GameCoverFlow Games="DemoGames" />
+
+@code {
+    private static readonly IReadOnlyList<GameCover> DemoGames =
+    [
+        new("orbit", "Orbit Runner", "Space arcade", "/images/games/orbit.svg"),
+        new("wilds", "The Wilds", "Adventure", "/images/games/wilds.svg"),
+        new("dodge", "BEAM Dodge", "Arcade · Dodge & survive", "/images/games/dodge.svg", "/games/beam-dodge/index.html"),
+        new("velocity", "Velocity", "Racing", "/images/games/velocity.svg"),
+        new("depths", "Into the Depths", "Exploration", "/images/games/depths.svg"),
+        new("summit", "Summit", "Platformer", "/images/games/summit.svg"),
+        new("signal", "Lost Signal", "Puzzle", "/images/games/signal.svg")
+    ];
+}

@@ -1,0 +1,95 @@
+@page "/games"
+@using BEAM.DAL
+@inject GameRepository Repository
+@inject ILogger<Games> Logger
+
+<PageTitle>Games | BEAM</PageTitle>
+<h1>Games</h1>
+<p>Your catalog is stored in local PostgreSQL. Download browser games in your library to play without a connection.</p>
+<a class="btn btn-outline-primary mb-3" href="/play/index.html" data-enhance-nav="false">Open downloadable library</a>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+
+<EditForm Model="draft" OnValidSubmit="AddAsync" FormName="add-game">
+    <DataAnnotationsValidator />
+    <label for="game-name" class="form-label">Game name</label>
+    <InputText id="game-name" class="form-control mb-2" @bind-Value="draft.Name" maxlength="120" disabled="@(!interactiveReady || busy)" />
+    <ValidationMessage For="() => draft.Name" />
+    <button class="btn btn-primary" disabled="@(!interactiveReady || busy)">Add game</button>
+</EditForm>
+
+@if (games is null)
+{
+    <p class="mt-3">Loading games…</p>
+}
+else if (games.Count == 0)
+{
+    <p class="mt-3">No games yet. Add your first game above.</p>
+}
+else
+{
+    <ul class="list-group mt-3">
+        @foreach (var game in games)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center" @key="game.Id">
+                <span>@game.Name</span>
+                @if (game.LaunchPath is not null)
+                {
+                    <a href="@game.LaunchPath" data-enhance-nav="false">Play online</a>
+                }
+                <button class="btn btn-outline-danger btn-sm" disabled="@(!interactiveReady || busy)"
+                        @onclick="() => DeleteAsync(game.Id)" aria-label="Delete @game.Name">Delete</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private Game draft = new();
+    private List<Game>? games;
+    private string? error;
+    private bool busy;
+    private bool interactiveReady;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            interactiveReady = true;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await RunAsync(async () => games = await Repository.ListAsync());
+
+    private async Task AddAsync() => await RunAsync(async () =>
+    {
+        await Repository.AddAsync(draft.Name);
+        draft = new();
+        games = await Repository.ListAsync();
+    });
+
+    private async Task DeleteAsync(int id) => await RunAsync(async () =>
+    {
+        await Repository.DeleteAsync(id);
+        games = await Repository.ListAsync();
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (busy) return;
+        busy = true;
+        error = null;
+        try { await action(); }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Game operation failed");
+            error = "Unable to access games. Check the database connection and try again.";
+        }
+        finally { busy = false; }
+    }
+}
+
