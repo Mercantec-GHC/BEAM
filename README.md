@@ -119,3 +119,10 @@ node tests/browser-smoke.cjs
 ```
 
 The browser smoke check covers catalog writes/deletes, offline download, offline game execution, offline storefront fallback, and download removal. Set `BEAM_TEST_URL` if the app isn't at http://localhost:18080. It creates and removes its own uniquely named catalog row.
+Arcade Machines and stuff
+
+
+
+## our documentation
+
+https://docs.google.com/document/d/11LQO4RGVMj__4UehWCmgdmXCMFZWWjUe9_7eakC0ipU/edit?pli=1&tab=t.0
