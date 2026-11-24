@@ -36,6 +36,15 @@ static const uint8_t GAMEPAD_DESCRIPTOR_TEMPLATE[] = {
   0xC0        // End Collection
 };
 const uint8_t REPORT_ID_INDEX = 7;
+
+// static const uint8_t REPORT_DESCRIPTOR[] = { GAMEPAD_DESC(1), GAMEPAD_DESC(2) };
+
+struct __attribute__((packed)) GamepadReport {
+  uint8_t buttons;  // bit n = button n+1
+  int8_t x;          // -127 left .. 127 right
+  int8_t y;          // -127 up .. 127 down
+};
+
 struct DescriptorRegistration {
   DescriptorRegistration() {
     for (uint8_t p = 0; p < PLAYER_COUNT; p++) { // for each player
@@ -47,6 +56,18 @@ struct DescriptorRegistration {
     }
   }
 } descriptorRegistration;
+
+#define EXP_PIN(exp, pin) (uint8_t)(((exp) << 3) | (pin)) // macro for finding the pin number in the expander
+
+struct PlayerPins { uint8_t up, down, left, right; uint8_t buttons[BUTTONS_PER_PLAYER]; };
+
+const PlayerPins PLAYER_PINS[PLAYER_COUNT] = {
+  { EXP_PIN(0,0), EXP_PIN(0,1), EXP_PIN(0,2), EXP_PIN(0,3),
+    { EXP_PIN(0,4), EXP_PIN(0,5), EXP_PIN(0,6), EXP_PIN(0,7), EXP_PIN(2,0), EXP_PIN(2,1), EXP_PIN(2,2) } },
+  { EXP_PIN(1,0), EXP_PIN(1,1), EXP_PIN(1,2), EXP_PIN(1,3),
+    { EXP_PIN(1,4), EXP_PIN(1,5), EXP_PIN(1,6), EXP_PIN(1,7), EXP_PIN(2,4), EXP_PIN(2,5), EXP_PIN(2,6) } },
+};
+
 uint8_t expanderStates[EXPANDER_COUNT];
 GamepadReport currentReports[PLAYER_COUNT];
 GamepadReport sentReports[PLAYER_COUNT];
@@ -57,6 +78,23 @@ void readExpanders() {
     if (Wire.requestFrom(EXPANDER_ADDRESSES[i], (size_t)1) == 1) expanderStates[i] = Wire.read();
   }
 }
+
+bool isPressed(uint8_t p) { return (expanderStates[p >> 3] & (1 << (p & 7))) == 0; }
+
+int8_t axis(bool neg, bool pos) { return neg == pos ? 0 : (neg ? -127 : 127); }
+
+void updateReports() {
+  for (uint8_t p = 0; p < PLAYER_COUNT; p++) {
+    const PlayerPins &pins = PLAYER_PINS[p];
+    GamepadReport &r = currentReports[p];
+    r.buttons = 0;
+    for (uint8_t b = 0; b < BUTTONS_PER_PLAYER; b++)
+      if (isPressed(pins.buttons[b])) r.buttons |= (1 << b);
+    r.x = axis(isPressed(pins.left), isPressed(pins.right));
+    r.y = axis(isPressed(pins.up), isPressed(pins.down));
+  }
+}
+
 void sendChangedReports() {
   for (uint8_t p = 0; p < PLAYER_COUNT; p++) {
     if (memcmp(&currentReports[p], &sentReports[p], sizeof(GamepadReport)) == 0) continue;
@@ -76,6 +114,7 @@ void setup() {
 
 void loop() {
   readExpanders();
+  updateReports();
   sendChangedReports();
   delay(1);
 }
