@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data/demo-games.json" />
+    <ProjectReference Include="..\BEAM.ServiceDefaults\BEAM.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\BEAM.DAL\BEAM.DAL.csproj" />
+  </ItemGroup>
+</Project>

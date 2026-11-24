@@ -1,0 +1,131 @@
+/* BEAM CSS Cover Flow.
+ * --cover-size: base image size. --side-spacing: distance between side covers.
+ * --side-tilt / --center-depth: Cover Flow perspective. --slide-duration: 0ms disables motion.
+ * Five visible covers and two hidden buffers; no shadows, filters or reflections.
+ */
+.carousel-page { min-height: 100svh; background: #101211; }
+.cover-flow {
+    --cover-size: min(72svh, 40vw);
+    --slide-duration: 200ms;
+    --category-duration: 200ms;
+    --side-tilt: 45deg;
+    --side-spacing: 65%;
+    --center-depth: calc(var(--cover-size) * .8);
+    --cover-perspective: calc(var(--cover-size) * 3.5);
+    display: block;
+    position: relative;
+    height: 100svh;
+    background: #101211;
+    overflow: hidden;
+}
+.cover-flow .flow-stage {
+    position: absolute;
+    inset: 0;
+
+
+    touch-action: pan-y;
+    user-select: none;
+}
+.cover-flow .flow-stage:focus { outline: none; }
+/* Cover Flow: a raised, front-facing selection and evenly spaced, angled sides.
+ * Keep sibling planes flat so overlapping images never intersect one another.
+ * Navigation recycles only the two invisible buffer slots; it never resets the row.
+ */
+.cover-flow .cover-window {
+    position: absolute;
+    inset: 0;
+    perspective: var(--cover-perspective);
+    perspective-origin: 50% 50%;
+}
+.cover-flow .game-cover {
+    --angle: 0deg;
+    --offset: 0%;
+    --depth: 0px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-top: calc(var(--cover-size) / -2);
+    margin-left: calc(var(--cover-size) / -2);
+    width: var(--cover-size);
+    height: var(--cover-size);
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    backface-visibility: hidden;
+    transform: translateX(var(--offset)) rotateY(var(--angle)) translateZ(var(--depth));
+    transition: transform var(--slide-duration) cubic-bezier(.2, .65, .25, 1);
+    cursor: pointer;
+}
+.cover-flow .game-cover[data-slot="0"] { --depth: var(--center-depth); }
+.cover-flow .game-cover[data-slot="-1"] { --offset: calc(var(--side-spacing) * -1); --angle: var(--side-tilt); }
+.cover-flow .game-cover[data-slot="-2"] { --offset: calc(var(--side-spacing) * -2); --angle: var(--side-tilt); }
+.cover-flow .game-cover[data-slot="-3"] { --offset: calc(var(--side-spacing) * -3); --angle: var(--side-tilt); }
+.cover-flow .game-cover[data-slot="1"] { --offset: var(--side-spacing); --angle: calc(-1 * var(--side-tilt)); }
+.cover-flow .game-cover[data-slot="2"] { --offset: calc(var(--side-spacing) * 2); --angle: calc(-1 * var(--side-tilt)); }
+.cover-flow .game-cover[data-slot="3"] { --offset: calc(var(--side-spacing) * 3); --angle: calc(-1 * var(--side-tilt)); }
+.cover-flow .game-cover[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
+.cover-flow .game-cover img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.cover-flow .game-cover:focus { outline: none; }
+.cover-flow [hidden] { display: none !important; }
+/* Accessible selection announcements stay offscreen. */
+.cover-flow .selection-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+.cover-flow .empty { padding: 120px 20px; text-align: center; color: #a0a69c; }
+@media (prefers-reduced-motion: reduce) {
+    .cover-flow .game-cover { transition: none; }
+}
+
+
+/* Up/Down cycle categories. Animate the existing stage as one group. */
+.cover-flow { --category-direction: 1; }
+.cover-flow[data-category-direction="down"] { --category-direction: -1; }
+.cover-flow[data-category-motion="a"] .flow-stage {
+    animation: category-swap-a var(--category-duration) ease-out;
+}
+.cover-flow[data-category-motion="b"] .flow-stage {
+    animation: category-swap-b var(--category-duration) ease-out;
+}
+/* Identical keyframes let a new keypress restart motion without layout reads.
+ * Only transforms animate; the same seven images are reused throughout. */
+@keyframes category-swap-a {
+    from { transform: perspective(var(--cover-perspective)) translateY(calc(var(--category-direction) * 4svh)) translateZ(calc(var(--cover-size) * -.15)) rotateX(calc(var(--category-direction) * 12deg)); }
+    to { transform: perspective(var(--cover-perspective)) translateY(0) translateZ(0) rotateX(0deg); }
+}
+@keyframes category-swap-b {
+    from { transform: perspective(var(--cover-perspective)) translateY(calc(var(--category-direction) * 4svh)) translateZ(calc(var(--cover-size) * -.15)) rotateX(calc(var(--category-direction) * 12deg)); }
+    to { transform: perspective(var(--cover-perspective)) translateY(0) translateZ(0) rotateX(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cover-flow[data-category-motion] .flow-stage { animation: none; }
+}
+
+/* The category label stays stationary while the covers change. */
+.cover-flow .category-name {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    color: #e4e8e1;
+    font: 500 12px/18px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: .12em;
+    pointer-events: none;
+}
+.cover-flow .category-empty {
+    position: absolute;
+    inset: 50% 20px auto;
+    margin: 0;
+    color: #a0a69c;
+    text-align: center;
+    pointer-events: none;
+}

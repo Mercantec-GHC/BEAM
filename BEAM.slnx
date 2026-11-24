@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BEAM.AppHost/BEAM.AppHost.csproj" />
+    <Project Path="src/BEAM.DAL/BEAM.DAL.csproj" />
+    <Project Path="src/BEAM.ServiceDefaults/BEAM.ServiceDefaults.csproj" />
+    <Project Path="src/BEAM.Web/BEAM.Web.csproj" />
+  </Folder>
+</Solution>
