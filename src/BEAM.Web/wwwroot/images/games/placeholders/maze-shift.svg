@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="Maze Shift placeholder cover">
+<rect width="600" height="600" fill="#122334"/>
+<path d="M40 100V40h60m400 0h60v60M40 370v30h520v-30" fill="none" stroke="#65dbb2" stroke-width="2"/>
+<text x="40" y="78" fill="#65dbb2" font-family="Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="2">ROMS / ARCADE</text>
+<text x="560" y="78" text-anchor="end" fill="#65dbb2" font-family="Arial,sans-serif" font-size="13">14</text>
+<path d="m255 115-100 260h290L345 115Z" fill="none" stroke="#65dbb2" stroke-width="8"/><path d="M300 145v40m0 30v50m0 35v50" stroke="#65dbb2" stroke-width="10"/><path d="M130 205h70m200 0h70M95 285h65m280 0h65" stroke="#65dbb2" stroke-width="5"/>
+<text x="40" y="468" fill="#f6f6f4" font-family="Arial,sans-serif" font-size="55" font-weight="800" letter-spacing="-1">MAZE</text>
+<text x="40" y="530" fill="#65dbb2" font-family="Arial,sans-serif" font-size="55" font-weight="800" letter-spacing="-1">SHIFT</text>
+<text x="40" y="570" fill="#65dbb2" font-family="Arial,sans-serif" font-size="11" letter-spacing="3">BEAM / PLACEHOLDER COVER</text>
+</svg>

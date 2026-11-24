@@ -6,7 +6,7 @@ const source = fs.readFileSync(require('node:path').join(__dirname,
     '../src/BEAM.Web/Components/Games/GameCoverFlow.razor.js'), 'utf8');
 
 // Exercise the real event handlers and frame scheduler without a browser dependency.
-function setup(count = 7) {
+function setup(counts = 7) {
     class Element {
         constructor() { this.dataset = {}; this.style = {}; this.attributes = {}; this.events = {}; }
         addEventListener(type, handler, options = {}) {
@@ -19,25 +19,32 @@ function setup(count = 7) {
             }
         }
         setAttribute(name, value) { this.attributes[name] = String(value); }
-        removeAttribute(name) { delete this.attributes[name]; }
+        removeAttribute(name) { delete this.attributes[name]; if (name === 'src') delete this.src; }
         focus() {}
     }
     const mod = (n, length) => ((n % length) + length) % length;
-    const games = Array.from({ length: count }, (_, i) => ({ dataset: {
-        title: `Game ${i}`, genre: `Genre ${i}`, image: `/cover-${i}.svg`,
-        ...(i === 2 ? { launch: '/games/two' } : {})
-    } }));
-    const cards = count ? Array.from({ length: count === 1 ? 1 : 7 }, (_, i) => {
+    const sizes = Array.isArray(counts) ? counts : [counts];
+    const names = ['Homemade', 'ROMS', 'Empty', 'Solo'];
+    const categories = sizes.map((count, category) => ({
+        dataset: { id: `category-${category}`, name: names[category] || `Category ${category}` },
+        children: Array.from({ length: count }, (_, i) => ({ dataset: {
+            title: category === 0 ? `Game ${i}` : `Category ${category} Game ${i}`,
+            image: `/cat-${category}/cover-${i}.svg`,
+            ...(i === 2 ? { launch: category === 0 ? '/games/two' : '/roms/two' } : {})
+        } }))
+    }));
+    const initialGames = categories[0]?.children ?? [];
+    const cards = Array.from({ length: 7 }, (_, i) => {
         const card = new Element();
-        const slot = count === 1 ? 0 : i - 3;
-        card.dataset = { slot: String(slot), index: String(mod(slot, count)) };
-        card.image = {};
+        const slot = i - 3;
+        card.dataset = { slot: String(slot), index: String(initialGames.length ? mod(slot, initialGames.length) : -1) };
+        card.image = new Element();
         card.querySelector = () => card.image;
         return card;
-    }) : [];
+    });
     const stage = new Element();
-    const nodes = { '.selection-status': new Element() };
-    nodes['.game-data'] = { children: games };
+    const nodes = { '.selection-status': new Element(), '.category-name': new Element(), '.category-empty': new Element() };
+    nodes['.game-data'] = { children: categories };
     nodes['.flow-stage'] = stage;
     const frames = new Map();
     let frameId = 0;
@@ -112,11 +119,11 @@ test('Home/End and playable game metadata stay synchronized', () => {
     assert.equal(Number(app.selected().dataset.index), 0);
     app.key('ArrowRight'); app.flush();
     app.key('ArrowRight'); app.flush();
-    assert.equal(app.nodes['.selection-status'].textContent, 'Game 2');
+    assert.equal(app.nodes['.selection-status'].textContent, 'Homemade: Game 2');
     app.key('Enter');
     assert.deepEqual(app.launches, ['/games/two']);
     app.key('ArrowRight'); app.flush();
-    assert.equal(app.nodes['.selection-status'].textContent, 'Game 3');
+    assert.equal(app.nodes['.selection-status'].textContent, 'Homemade: Game 3');
     app.key('Enter');
     assert.deepEqual(app.launches, ['/games/two'], 'Unavailable games are not launched');
 });
@@ -127,8 +134,9 @@ test('empty/single game catalogs and disconnection do not leave work scheduled',
     empty.root.disconnectedCallback();
     const single = setup(1);
     single.key('ArrowRight'); single.flush();
-    assert.equal(single.cards.length, 1);
-    assert.equal(single.cards[0].dataset.index, '0');
+    assert.equal(single.cards.length, 7);
+    assert.equal(Number(single.selected().dataset.index), 0);
+    assert.equal(single.cards.filter(card => card.attributes['aria-hidden'] === 'false').length, 1);
     assert.equal(single.frames.size, 0);
     const app = setup();
     app.key('ArrowRight');
@@ -176,4 +184,112 @@ test('last-to-first wrapping uses the same slide and only teleports invisible bu
             }
         });
     }
+});
+
+
+test('Up cycles categories, remembers selections and swaps artwork even when indices match', () => {
+    const app = setup([7, 3]);
+    assert.equal(app.nodes['.category-name'].textContent, 'Homemade');
+    app.key('ArrowRight'); app.flush();
+    app.key('ArrowRight'); app.flush();
+    app.key('ArrowUp');
+    assert.equal(app.nodes['.category-name'].textContent, 'ROMS');
+    assert.equal(Number(app.selected().dataset.index), 0);
+    assert.equal(app.selected().image.src, '/cat-1/cover-0.svg');
+    app.key('ArrowLeft'); app.flush();
+    assert.equal(Number(app.selected().dataset.index), 2, 'Wrapping stays inside ROMS');
+    app.key('Enter');
+    assert.deepEqual(app.launches, ['/roms/two']);
+    app.key('ArrowUp');
+    assert.equal(app.nodes['.category-name'].textContent, 'Homemade');
+    assert.equal(Number(app.selected().dataset.index), 2);
+    assert.equal(app.selected().image.src, '/cat-0/cover-2.svg');
+    app.key('Enter');
+    assert.deepEqual(app.launches, ['/roms/two', '/games/two']);
+    app.key('ArrowUp');
+    assert.equal(Number(app.selected().dataset.index), 2, 'ROMS also remembers its selection');
+    assert.equal(app.cards.length, 7);
+    assert.equal(app.frames.size, 0);
+});
+
+test('held Up does not oscillate categories, and queued horizontal input cannot leak across categories', () => {
+    const app = setup([7, 3]);
+    app.key('ArrowRight'); // Do not flush the queued input before switching.
+    app.key('ArrowUp');
+    assert.equal(app.frames.size, 0);
+    app.key('ArrowUp', { repeat: true });
+    assert.equal(app.nodes['.category-name'].textContent, 'ROMS');
+    assert.equal(Number(app.selected().dataset.index), 0);
+    app.flush();
+    assert.equal(Number(app.selected().dataset.index), 0);
+    app.key('ArrowUp');
+    assert.equal(Number(app.selected().dataset.index), 1, 'Pending selection was remembered in Homemade');
+});
+
+test('empty and single-game categories remain navigable without stale covers or launches', () => {
+    const app = setup([7, 0, 1]);
+    app.key('ArrowUp');
+    assert.equal(app.nodes['.category-empty'].hidden, false);
+    assert.equal(app.selected(), undefined);
+    for (const card of app.cards) {
+        assert.equal(card.attributes['aria-hidden'], 'true');
+        assert.equal(card.image.src, undefined);
+    }
+    app.key('ArrowLeft'); app.key('Home'); app.key('End'); app.key('Enter');
+    assert.equal(app.frames.size, 0);
+    assert.deepEqual(app.launches, []);
+    app.key('ArrowUp');
+    assert.equal(app.nodes['.category-empty'].hidden, true);
+    assert.equal(Number(app.selected().dataset.index), 0);
+    assert.equal(app.cards.filter(card => card.attributes['aria-hidden'] === 'false').length, 1);
+    app.key('ArrowRight');
+    assert.equal(app.frames.size, 0);
+    app.key('ArrowUp');
+    assert.equal(app.nodes['.category-name'].textContent, 'Homemade');
+    assert.equal(app.cards.filter(card => card.attributes['aria-hidden'] === 'false').length, 5);
+});
+
+test('Down wraps categories backwards and restores each category selection', () => {
+    const app = setup([7, 3, 2, 4]);
+    app.key('ArrowRight'); app.flush();
+    app.key('ArrowDown');
+    assert.equal(app.nodes['.category-name'].textContent, 'Solo');
+    assert.equal(app.root.dataset.categoryDirection, 'down');
+    app.key('ArrowRight'); app.flush();
+    app.key('ArrowRight'); app.flush();
+    app.key('ArrowUp');
+    assert.equal(app.nodes['.category-name'].textContent, 'Homemade');
+    assert.equal(Number(app.selected().dataset.index), 1);
+    assert.equal(app.root.dataset.categoryDirection, 'up');
+    app.key('ArrowDown');
+    assert.equal(Number(app.selected().dataset.index), 2);
+    app.key('ArrowDown');
+    assert.equal(app.nodes['.category-name'].textContent, 'Empty');
+    app.key('ArrowDown');
+    assert.equal(app.nodes['.category-name'].textContent, 'ROMS');
+    assert.equal(app.cards.length, 7);
+    assert.equal(app.frames.size, 0);
+});
+
+test('category motion restarts with alternating CSS names and no JavaScript animation loop', () => {
+    const app = setup([7, 3, 2]);
+    app.key('ArrowUp');
+    const first = app.root.dataset.categoryMotion;
+    app.key('ArrowUp');
+    assert.notEqual(app.root.dataset.categoryMotion, first);
+    app.key('ArrowDown');
+    assert.equal(app.root.dataset.categoryMotion, first);
+    assert.equal(app.root.dataset.categoryDirection, 'down');
+    assert.equal(app.frames.size, 0);
+    app.key('ArrowDown', { repeat: true });
+    assert.equal(app.root.dataset.categoryMotion, first);
+    assert.equal(app.nodes['.category-name'].textContent, 'ROMS');
+});
+
+test('single-category catalog does not start category motion for Up or Down', () => {
+    const app = setup(7);
+    app.key('ArrowUp'); app.key('ArrowDown');
+    assert.equal(app.root.dataset.categoryMotion, undefined);
+    assert.equal(app.nodes['.category-name'].textContent, 'Homemade');
+    assert.equal(app.frames.size, 0);
 });

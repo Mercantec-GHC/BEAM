@@ -7,6 +7,7 @@
 .cover-flow {
     --cover-size: min(72svh, 40vw);
     --slide-duration: 200ms;
+    --category-duration: 200ms;
     --side-tilt: 45deg;
     --side-spacing: 65%;
     --center-depth: calc(var(--cover-size) * .8);
@@ -84,3 +85,47 @@
     .cover-flow .game-cover { transition: none; }
 }
 
+
+/* Up/Down cycle categories. Animate the existing stage as one group. */
+.cover-flow { --category-direction: 1; }
+.cover-flow[data-category-direction="down"] { --category-direction: -1; }
+.cover-flow[data-category-motion="a"] .flow-stage {
+    animation: category-swap-a var(--category-duration) ease-out;
+}
+.cover-flow[data-category-motion="b"] .flow-stage {
+    animation: category-swap-b var(--category-duration) ease-out;
+}
+/* Identical keyframes let a new keypress restart motion without layout reads.
+ * Only transforms animate; the same seven images are reused throughout. */
+@keyframes category-swap-a {
+    from { transform: perspective(var(--cover-perspective)) translateY(calc(var(--category-direction) * 4svh)) translateZ(calc(var(--cover-size) * -.15)) rotateX(calc(var(--category-direction) * 12deg)); }
+    to { transform: perspective(var(--cover-perspective)) translateY(0) translateZ(0) rotateX(0deg); }
+}
+@keyframes category-swap-b {
+    from { transform: perspective(var(--cover-perspective)) translateY(calc(var(--category-direction) * 4svh)) translateZ(calc(var(--cover-size) * -.15)) rotateX(calc(var(--category-direction) * 12deg)); }
+    to { transform: perspective(var(--cover-perspective)) translateY(0) translateZ(0) rotateX(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cover-flow[data-category-motion] .flow-stage { animation: none; }
+}
+
+/* The category label stays stationary while the covers change. */
+.cover-flow .category-name {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    color: #e4e8e1;
+    font: 500 12px/18px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: .12em;
+    pointer-events: none;
+}
+.cover-flow .category-empty {
+    position: absolute;
+    inset: 50% 20px auto;
+    margin: 0;
+    color: #a0a69c;
+    text-align: center;
+    pointer-events: none;
+}

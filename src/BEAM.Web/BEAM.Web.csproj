@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Data/demo-games.json" />
     <ProjectReference Include="..\BEAM.ServiceDefaults\BEAM.ServiceDefaults.csproj" />
     <ProjectReference Include="..\BEAM.DAL\BEAM.DAL.csproj" />
   </ItemGroup>

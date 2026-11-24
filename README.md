@@ -59,6 +59,16 @@ Open the dashboard URL printed in the terminal, then its `web` resource. Aspire 
 
 To run the web project independently, configure `ConnectionStrings__beamdb` and, for this local setup, `Database__ApplyMigrations=true` before `dotnet run --project src/BEAM.Web --launch-profile https`.
 
+## Game selector and categories
+
+Open `/GameSlider`. Left/Right browse games, Up cycles Homemade → ROMS → Arcade → Fighter, Down cycles in reverse, and Enter launches a playable selection. Each category remembers its selection. Category changes use a short CSS tilt/slide in the chosen direction; set `--category-duration: 0ms` in `game-slider.css` to disable that motion. Reduced-motion preferences disable it automatically.
+
+The shared demo catalog is in `src/BEAM.Web/Data/demo-games.json`. A game's `categoryIds` can contain multiple tags, such as `["homemade", "fighter"]` or `["roms", "arcade", "racing"]`. `DemoGameCatalog` builds category views by filtering these tags; games retain the same ID, artwork, and launch target in every view. Add another `GameCategory.FromCatalog` entry there to expose a new tag as a selectable category.
+
+The demo has 20 unique games shared across four categories with exactly 10 entries each. Its SVG placeholder covers live in `wwwroot/images/games/placeholders`. Catalog JSON is embedded in the app, so rebuild after editing it. The frontend reuses seven image nodes (five visible covers and two hidden buffers) across all categories.
+
+Run local checks with `node --test tests/carousel.test.cjs tests/catalog.test.cjs`. Set `BEAM_TEST_URL` to the running storefront URL to also verify rendered category membership and cover delivery.
+
 ## PWA and offline games
 
 1. Open `/play/index.html` while connected.

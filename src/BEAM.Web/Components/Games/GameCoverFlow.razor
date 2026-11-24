@@ -1,55 +1,56 @@
 @inject IJSRuntime JS
 
-<beam-cover-flow @key="Games" class="cover-flow" aria-label="Game selector" aria-roledescription="carousel">
-    @if (Games.Count == 0)
+<beam-cover-flow @key="Categories" class="cover-flow" aria-label="Game selector" aria-roledescription="carousel">
+    @if (Categories.Count == 0)
     {
-        <p class="empty">Your next adventure is on its way. Add some games to get started.</p>
+        <p class="empty">No categories yet.</p>
     }
     else
     {
-        @* Five visible covers plus two occluded buffers keep wrapping smooth with a bounded image pool. *@
+        var initialGames = Categories[0].Games;
         <div class="game-data" hidden>
-            @foreach (var game in Games)
+            @foreach (var category in Categories)
             {
-                <span data-title="@game.Title" data-genre="@game.Genre" data-image="@game.ImageUrl" data-launch="@game.LaunchUrl"></span>
+                <div data-id="@category.Id" data-name="@category.Name">
+                    @foreach (var game in category.Games)
+                    {
+                        <span data-id="@game.Id" data-title="@game.Title" data-categories="@string.Join(",", game.CategoryIds)" data-image="@game.ImageUrl" data-launch="@game.LaunchUrl"></span>
+                    }
+                </div>
             }
         </div>
-        <div class="flow-stage" tabindex="0" aria-label="Game covers. Use left and right arrow keys to browse.">
+        <span class="category-name">@Categories[0].Name</span>
+        <div class="flow-stage" tabindex="0" aria-label="Game covers. Use left and right arrow keys to browse, and Up or Down to switch category.">
             <div class="cover-window">
-            @for (var slot = Games.Count == 1 ? 0 : -3; slot <= (Games.Count == 1 ? 0 : 3); slot++)
-            {
-                var index = (slot % Games.Count + Games.Count) % Games.Count;
-                var game = Games[index];
-                var hidden = Math.Abs(slot) > 2;
-                <button type="button" class="game-cover" data-slot="@slot" data-index="@index"
-                        style="@CoverStyle(slot)" tabindex="@(hidden ? -1 : 0)"
-                        aria-hidden="@(hidden ? "true" : "false")" aria-label="Select @game.Title" aria-pressed="@(slot == 0 ? "true" : "false")">
-                    <img src="@game.ImageUrl" alt="@game.Title cover" draggable="false" decoding="async" width="600" height="600" />
-                </button>
-            }
+                @* One bounded pool is reused for every category, including empty ones. *@
+                @for (var slot = -3; slot <= 3; slot++)
+                {
+                    var index = initialGames.Count == 0 ? -1 : (slot % initialGames.Count + initialGames.Count) % initialGames.Count;
+                    var game = index < 0 ? null : initialGames[index];
+                    var hidden = game is null || (initialGames.Count == 1 ? slot != 0 : Math.Abs(slot) > 2);
+                    <button type="button" class="game-cover" data-slot="@slot" data-index="@index"
+                            style="z-index:@(10 - Math.Abs(slot))" tabindex="@(hidden ? -1 : 0)"
+                            aria-hidden="@(hidden ? "true" : "false")" aria-label="@(game is null ? "No game" : $"Select {game.Title}")"
+                            aria-pressed="@(game is not null && slot == 0 ? "true" : "false")">
+                        <img src="@game?.ImageUrl" alt="@(game is null ? "" : $"{game.Title} cover")" draggable="false" decoding="async" width="600" height="600" />
+                    </button>
+                }
             </div>
         </div>
-        <span class="selection-status" role="status" aria-live="polite" aria-atomic="true">@Games[0].Title</span>
+        <p class="category-empty" hidden="@(initialGames.Count > 0)">No games in this category yet.</p>
+        <span class="selection-status" role="status" aria-live="polite" aria-atomic="true">@Categories[0].Name: @(initialGames.Count == 0 ? "No games yet" : initialGames[0].Title)</span>
     }
 </beam-cover-flow>
 
 @code {
-    [Parameter, EditorRequired] public IReadOnlyList<GameCover> Games { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<GameCategory> Categories { get; set; } = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Register once; input and animation never need a server round trip.
+            // Input and category switching run locally, without server round trips.
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Games/GameCoverFlow.razor.js");
         }
     }
-
-    private static string CoverStyle(int slot) => $"z-index:{10 - Math.Abs(slot)}";
 }
-
-
-
-
-
-
