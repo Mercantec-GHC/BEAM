@@ -47,6 +47,16 @@ struct DescriptorRegistration {
     }
   }
 } descriptorRegistration;
+uint8_t expanderStates[EXPANDER_COUNT];
+GamepadReport currentReports[PLAYER_COUNT];
+GamepadReport sentReports[PLAYER_COUNT];
+
+void readExpanders() {
+  for (uint8_t i = 0; i < EXPANDER_COUNT; i++) {
+    expanderStates[i] = 0xFF;  // missing expander = nothing pressed
+    if (Wire.requestFrom(EXPANDER_ADDRESSES[i], (size_t)1) == 1) expanderStates[i] = Wire.read();
+  }
+}
 void sendChangedReports() {
   for (uint8_t p = 0; p < PLAYER_COUNT; p++) {
     if (memcmp(&currentReports[p], &sentReports[p], sizeof(GamepadReport)) == 0) continue;
@@ -65,6 +75,7 @@ void setup() {
 }
 
 void loop() {
+  readExpanders();
   sendChangedReports();
   delay(1);
 }
