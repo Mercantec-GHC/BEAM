@@ -57,12 +57,11 @@ void sendChangedReports() {
 
 void setup() {
   Wire.begin();
-  Serial.begin(9600);
-  Serial.println("Scanner efter I2C-enheder...");
-
-  pinMode(button, INPUT); //set button as an INPUT device
-  pinMode(buzzer, OUTPUT);   //set LED as an OUTPUT device
-  
+  for (uint8_t i = 0; i < EXPANDER_COUNT; i++) {  // all pins HIGH = inputs with pull-ups
+    Wire.beginTransmission(EXPANDER_ADDRESSES[i]);
+    Wire.write(0xFF);
+    Wire.endTransmission();
+  }
 }
 
 void loop() {
