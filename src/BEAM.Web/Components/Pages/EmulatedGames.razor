@@ -1,0 +1,167 @@
+@page "/emulated-games"
+@using System.ComponentModel.DataAnnotations
+@using BEAM.DAL
+@inject GameRepository Repository
+@inject GameAssetStore Storage
+@inject ILogger<EmulatedGames> Logger
+
+<PageTitle>Emulated games | BEAM</PageTitle>
+<h1>Emulated games</h1>
+<a class="btn btn-outline-primary mb-3" href="/GameSlider" data-enhance-nav="false">Open game selector</a>
+<p>Add a ROM, choose its system, and launch it from your library or the game selector.</p>
+<p>ROMs up to 512 MB, optional BIOS up to 32 MB, and PNG/JPEG/WebP covers up to 5 MB. Saved files stay on this server; the player requires an internet connection.</p>
+@if (error is not null) { <div role="alert" class="alert alert-danger">@error</div> }
+@if (message is not null) { <p role="status" class="alert alert-success">@message</p> }
+@if (savedGameId is not null)
+{
+    <a class="btn btn-success mb-3" href="@($"/GameSlider?game=uploaded-{savedGameId}")" data-enhance-nav="false">View saved game in selector</a>
+}
+
+<EditForm Model="draft" OnValidSubmit="SaveAsync" FormName="upload-emulated-game">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <fieldset disabled="@(!ready || busy)" class="border rounded p-3 mb-4">
+        <legend>Add a game</legend>
+        <label for="emulated-title" class="form-label">Title</label>
+        <InputText id="emulated-title" class="form-control mb-3" @bind-Value="draft.Title" maxlength="120" />
+        <label for="emulated-system" class="form-label">System / emulator</label>
+        <InputSelect id="emulated-system" class="form-select mb-2" @bind-Value="draft.Core">
+            @foreach (var system in EmulatorSystems.All) { <option value="@system.Core">@system.Name</option> }
+        </InputSelect>
+        <p class="text-muted">@EmulatorSystems.Find(draft.Core)?.Hint</p>
+        <label for="emulated-rom" class="form-label">ROM file (required)</label>
+        <InputFile @key="fileInputKey" id="emulated-rom" class="form-control mb-3" OnChange="e => rom = e.File" accept="@string.Join(',', EmulatorSystems.Find(draft.Core)!.Extensions)" />
+        <label for="emulated-bios" class="form-label">BIOS file (optional)</label>
+        <InputFile @key="(fileInputKey + 1)" id="emulated-bios" class="form-control mb-3" OnChange="e => bios = e.File" accept=".bin,.rom,.zip" />
+        <label for="emulated-cover" class="form-label">Cover image (optional)</label>
+        <InputFile @key="(fileInputKey + 2)" id="emulated-cover" class="form-control mb-3" OnChange="e => cover = e.File" accept=".png,.jpg,.jpeg,.webp" />
+        <div class="mb-3">
+            <span>Categories</span>
+            <label class="ms-3"><InputCheckbox @bind-Value="draft.Arcade" /> Arcade</label>
+            <label class="ms-3"><InputCheckbox @bind-Value="draft.Fighter" /> Fighter</label>
+            <small class="d-block text-muted">Every uploaded game also appears in ROMS.</small>
+        </div>
+        <label for="emulated-controls" class="form-label">Controls / player notes (optional)</label>
+        <InputTextArea id="emulated-controls" class="form-control mb-3" @bind-Value="draft.ControlNotes" maxlength="1000" />
+        <button class="btn btn-primary" type="submit">@(busy ? "Saving game…" : "Save game")</button>
+    </fieldset>
+</EditForm>
+@if (busy) { <p role="status">Uploading files and saving the game. Keep this page open.</p> }
+
+<h2>Your games</h2>
+@if (games.Count == 0) { <p>No emulated games saved yet.</p> }
+<div class="row g-3">
+    @foreach (var game in games)
+    {
+        <article class="col-sm-6 col-lg-4" @key="game.Id" data-game-id="@game.Id">
+            <div class="card h-100">
+                <img src="@CoverUrl(game)" alt="@game.Name cover" class="card-img-top" style="height:200px;object-fit:contain;background:#151822" />
+                <div class="card-body">
+                    <h3 class="h5">@game.Name</h3>
+                    <p>@EmulatorSystems.Find(game.EmulatorCore)?.Name · @game.Categories</p>
+                    @if (game.RomFileName?.Equals("tektagt.zip", StringComparison.OrdinalIgnoreCase) == true && game.EmulatorCore == "mame2003_plus")
+                    { <p class="text-danger">Compatibility preview: this core lacks the Tekken Tag driver.</p> }
+                    <a class="btn btn-primary" href="@game.LaunchPath" data-enhance-nav="false">Play @game.Name</a>
+                    <a class="btn btn-outline-primary" href="@($"/GameSlider?game=uploaded-{game.Id}")" data-enhance-nav="false">Show in selector</a>
+                    <button type="button" class="btn btn-outline-danger" disabled="@(!ready || busy)" @onclick="() => DeleteAsync(game)" aria-label="Delete @game.Name">Delete</button>
+                </div>
+            </div>
+        </article>
+    }
+</div>
+
+@code {
+    private UploadDraft draft = new();
+    private IBrowserFile? rom, bios, cover;
+    private List<Game> games = [];
+    private string? error, message;
+    private bool ready, busy;
+    private int fileInputKey;
+    private int? savedGameId;
+
+    private static string CoverUrl(Game game) => game.CoverFileName is null
+        ? "/images/games/default-cover.svg" : GameAssetStore.Url(game.PackageId!, game.CoverFileName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { await ReloadAsync(); }
+        catch (Exception ex) { Logger.LogError(ex, "Loading emulated games failed"); error = "Unable to load games. Check the database connection."; }
+    }
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) { ready = true; StateHasChanged(); } }
+    private async Task ReloadAsync() => games = (await Repository.ListAsync()).Where(game => game.EmulatorCore is not null).ToList();
+
+    private async Task SaveAsync()
+    {
+        if (busy) return;
+        busy = true; error = message = null; savedGameId = null;
+        string? package = null;
+        try
+        {
+            var system = EmulatorSystems.Find(draft.Core) ?? throw new ArgumentException("Choose a supported system.");
+            if (string.IsNullOrWhiteSpace(draft.Title)) throw new ArgumentException("Enter a title.");
+            if (rom is null) throw new ArgumentException("Choose a ROM file.");
+            if (!system.Extensions.Contains(Path.GetExtension(rom.Name).ToLowerInvariant()))
+                throw new ArgumentException($"This system accepts {string.Join(", ", system.Extensions)} files.");
+            if (bios is not null && !new[] { ".bin", ".rom", ".zip" }.Contains(Path.GetExtension(bios.Name).ToLowerInvariant()))
+                throw new ArgumentException("BIOS files must be BIN, ROM or ZIP files.");
+            var files = new[] { rom, bios, cover }.Where(file => file is not null).Cast<IBrowserFile>().ToArray();
+            foreach (var file in files) GameAssetStore.FileName(file.Name);
+            if (files.Select(file => file.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != files.Length)
+                throw new ArgumentException("ROM, BIOS and cover files must have different filenames.");
+            package = Guid.NewGuid().ToString("N");
+            await Storage.SaveAsync(package, rom, GameAssetStore.MaxRomBytes);
+            if (bios is not null) await Storage.SaveAsync(package, bios, GameAssetStore.MaxBiosBytes);
+            if (cover is not null) await Storage.SaveAsync(package, cover, GameAssetStore.MaxCoverBytes, cover: true);
+            savedGameId = await Repository.AddEmulatedAsync(new Game
+            {
+                Name = draft.Title.Trim(), EmulatorCore = draft.Core, PackageId = package,
+                RomFileName = rom.Name, BiosFileName = bios?.Name, CoverFileName = cover?.Name,
+                Categories = string.Join(',', new[] { "roms", draft.Arcade ? "arcade" : null, draft.Fighter ? "fighter" : null }.Where(id => id is not null)),
+                ControlNotes = draft.ControlNotes?.Trim()
+            });
+            package = null; // The committed database row now owns the package.
+            draft = new(); rom = bios = cover = null; fileInputKey += 3;
+            message = "Game saved. It is now available in your library and the game selector.";
+            await ReloadAsync();
+        }
+        catch (ArgumentException ex) { error = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Saving emulated game failed"); error = "Unable to save the game. Check storage and the database connection, then retry."; }
+        finally
+        {
+            if (package is not null) TryRemove(package);
+            busy = false;
+        }
+    }
+    private async Task DeleteAsync(Game game)
+    {
+        if (busy) return;
+        busy = true; error = message = null; savedGameId = null;
+        try
+        {
+            await Repository.DeleteAsync(game.Id);
+            var removed = TryRemove(game.PackageId);
+            await ReloadAsync();
+            message = removed ? "Game and uploaded files removed." : "Game removed from the catalog.";
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Deleting emulated game failed"); error = "Unable to delete the game. Try again."; }
+        finally { busy = false; }
+    }
+    private bool TryRemove(string? package)
+    {
+        try { Storage.Remove(package); return true; }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Cleaning up game package failed");
+            error ??= "Uploaded files could not be removed from storage. Check the server's storage permissions.";
+            return false;
+        }
+    }
+    private sealed class UploadDraft
+    {
+        [Required, MaxLength(120)] public string Title { get; set; } = "";
+        public string Core { get; set; } = "fceumm";
+        public bool Arcade { get; set; }
+        public bool Fighter { get; set; }
+        [MaxLength(1000)] public string? ControlNotes { get; set; }
+    }
+}

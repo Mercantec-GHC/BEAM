@@ -12,6 +12,7 @@ builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("postgres");
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSingleton<GameAssetStore>();
 
 var app = builder.Build();
 
@@ -40,6 +41,33 @@ if (builder.Configuration.GetValue("HttpsRedirection:Enabled", true))
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapMethods("/game-assets/{package}/{name}", ["GET", "HEAD"], (string package, string name, GameAssetStore store, HttpContext context) =>
+{
+    var path = store.Resolve(package, name);
+    if (path is null || !File.Exists(path)) return Results.NotFound();
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    var contentType = Path.GetExtension(name).ToLowerInvariant() switch
+    {
+        ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp",
+        ".zip" => "application/zip", _ => "application/octet-stream"
+    };
+    return Results.File(path, contentType, enableRangeProcessing: true);
+});
+app.MapGet("/emulator/games/{id:int}", async (int id, GameRepository repository) =>
+{
+    var game = await repository.FindAsync(id);
+    if (game?.PackageId is null || game.RomFileName is null || EmulatorSystems.Find(game.EmulatorCore) is null)
+        return Results.NotFound();
+    return Results.Ok(new
+    {
+        game.Id, title = game.Name, core = game.EmulatorCore, romFileName = game.RomFileName,
+        romUrl = GameAssetStore.Url(game.PackageId, game.RomFileName),
+        biosUrl = game.BiosFileName is null ? null : GameAssetStore.Url(game.PackageId, game.BiosFileName),
+        controlNotes = game.ControlNotes,
+        warning = game.EmulatorCore == "mame2003_plus" && game.RomFileName.Equals("tektagt.zip", StringComparison.OrdinalIgnoreCase)
+            ? "Tekken Tag cannot boot with the shipped core: its game driver is missing." : null
+    });
+});
 app.MapDefaultEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

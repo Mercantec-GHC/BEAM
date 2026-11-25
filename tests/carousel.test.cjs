@@ -6,14 +6,14 @@ const source = fs.readFileSync(require('node:path').join(__dirname,
     '../src/BEAM.Web/Components/Games/GameCoverFlow.razor.js'), 'utf8');
 
 // Exercise the real event handlers and frame scheduler without a browser dependency.
-function setup(counts = 7) {
+function setup(counts = 7, initialGame) {
     class Element {
         constructor() { this.dataset = {}; this.style = {}; this.attributes = {}; this.events = {}; }
         addEventListener(type, handler, options = {}) {
             (this.events[type] ??= []).push({ handler, signal: options.signal });
         }
         emit(type, data = {}) {
-            const event = { preventDefault() {}, ...data };
+            const event = { preventDefault() {}, stopImmediatePropagation() {}, ...data };
             for (const { handler, signal } of this.events[type] ?? []) {
                 if (!signal?.aborted) handler(event);
             }
@@ -28,6 +28,7 @@ function setup(counts = 7) {
     const categories = sizes.map((count, category) => ({
         dataset: { id: `category-${category}`, name: names[category] || `Category ${category}` },
         children: Array.from({ length: count }, (_, i) => ({ dataset: {
+            id: `category-${category}-game-${i}`,
             title: category === 0 ? `Game ${i}` : `Category ${category} Game ${i}`,
             image: `/cat-${category}/cover-${i}.svg`,
             ...(i === 2 ? { launch: category === 0 ? '/games/two' : '/roms/two' } : {})
@@ -50,9 +51,28 @@ function setup(counts = 7) {
     let frameId = 0;
     let Carousel;
     const launches = [];
+    const session = new Element();
+    session.hidden = true;
+    const player = new Element();
+    Object.defineProperty(player, 'src', { set(value) {
+        this.currentSrc = value;
+        if (value !== 'about:blank') launches.push(new URL(value).pathname);
+    }, get() { return this.currentSrc; } });
+    const hostWindow = new Element();
+    hostWindow.location = { href: 'http://localhost/GameSlider' };
+    const makeDocument = () => {
+        const doc = new Element();
+        doc.defaultView = new Element();
+        doc.querySelectorAll = () => [];
+        return doc;
+    };
+    player.contentDocument = makeDocument();
+    nodes['.game-session'] = session;
+    nodes['.game-player'] = player;
     vm.runInNewContext(source, {
         HTMLElement: Element,
-        window: { location: { assign(url) { launches.push(url); } } },
+        URL,
+        window: hostWindow,
         MutationObserver: class { observe() {} disconnect() {} },
         AbortController,
         document: { activeElement: null },
@@ -62,6 +82,7 @@ function setup(counts = 7) {
         customElements: { get() {}, define(name, component) { Carousel = component; } }
     });
     const root = new Carousel();
+    root.dataset.initialGame = initialGame;
     root.querySelector = selector => nodes[selector];
     root.querySelectorAll = () => cards;
     root.connectedCallback();
@@ -71,10 +92,43 @@ function setup(counts = 7) {
         callbacks.forEach(callback => callback());
     };
     let time = 0;
-    const key = (key, extra = {}) => root.emit('keydown', { key, timeStamp: time += 150, ...extra });
+    const key = (key, extra = {}) => {
+        if (!session.hidden) hostWindow.emit('keydown', { key: 'F8' });
+        root.emit('keydown', { key, timeStamp: time += 150, ...extra });
+    };
     const selected = () => cards.find(card => card.attributes['aria-pressed'] === 'true');
-    return { root, cards, stage, nodes, frames, flush, key, selected, launches };
+    return { root, cards, stage, nodes, frames, flush, key, selected, launches, session, player, hostWindow, makeDocument };
 }
+
+test('game opens in the same page and return unloads it while preserving selection', () => {
+    const app = setup(7, 'category-0-game-2');
+    app.key('Enter');
+    assert.equal(app.session.hidden, false);
+    assert.equal(app.stage.inert, true);
+    assert.equal(app.player.src, 'http://localhost/games/two?arcade=1');
+    app.root.emit('keydown', { key: 'ArrowRight' });
+    app.flush();
+    assert.equal(Number(app.selected().dataset.index), 2);
+    app.hostWindow.emit('keydown', { key: 'F8' });
+    assert.equal(app.session.hidden, true);
+    assert.equal(app.player.src, 'about:blank');
+    assert.equal(app.stage.inert, false);
+    assert.equal(Number(app.selected().dataset.index), 2);
+});
+
+test('physical return key works in a dynamically loaded nested emulator document', () => {
+    const app = setup(7, 'category-0-game-2');
+    app.key('Enter');
+    app.player.emit('load');
+    const nested = { tagName: 'IFRAME', contentDocument: app.makeDocument() };
+    app.player.contentDocument.emit('load', { target: nested });
+    nested.contentDocument.defaultView.emit('keydown', { key: 'ArrowLeft' });
+    assert.equal(app.session.hidden, false);
+    nested.contentDocument.defaultView.emit('keydown', { key: 'F8' });
+    assert.equal(app.session.hidden, true);
+    assert.equal(app.player.src, 'about:blank');
+    assert.equal(Number(app.selected().dataset.index), 2);
+});
 
 test('wraps both directions and preserves the bounded seven-image ring with five visible covers under repeated input', () => {
     for (const count of [2, 7, 1000]) {
@@ -292,4 +346,16 @@ test('single-category catalog does not start category motion for Up or Down', ()
     assert.equal(app.root.dataset.categoryMotion, undefined);
     assert.equal(app.nodes['.category-name'].textContent, 'Homemade');
     assert.equal(app.frames.size, 0);
+});
+
+test('saved-game links select and launch the intended game, with a safe fallback for a removed game', () => {
+    const app = setup([7, 3], 'category-0-game-2');
+    assert.equal(Number(app.selected().dataset.index), 2);
+    app.key('Enter');
+    assert.deepEqual(app.launches, ['/games/two']);
+    app.key('ArrowUp');
+    app.key('ArrowDown');
+    assert.equal(Number(app.selected().dataset.index), 2);
+    const stale = setup(7, 'removed-game');
+    assert.equal(Number(stale.selected().dataset.index), 0);
 });

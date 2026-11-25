@@ -1,7 +1,28 @@
 @page "/GameSlider"
 @layout CarouselLayout
 @using BEAM.Web.Components.Games
+@using BEAM.DAL
+@inject GameRepository Repository
+@inject ILogger<GameSlider> Logger
 
 <PageTitle>Game selector | BEAM</PageTitle>
 
-<GameCoverFlow Categories="DemoGameCatalog.Categories" />
+<GameCoverFlow Categories="categories" InitialGameId="@GameId" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "game")] public string? GameId { get; set; }
+    private IReadOnlyList<GameCategory> categories = DemoGameCatalog.Categories;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uploaded = (await Repository.ListAsync()).Where(game => game.EmulatorCore is not null && game.PackageId is not null)
+                .Select(game => new GameCover($"uploaded-{game.Id}", game.Name,
+                    game.Categories.Contains("fighter") ? "fighter" : "arcade",
+                    game.CoverFileName is null ? "/images/games/default-cover.svg" : GameAssetStore.Url(game.PackageId!, game.CoverFileName),
+                    game.Categories.Split(',', StringSplitOptions.RemoveEmptyEntries), game.LaunchPath));
+            categories = DemoGameCatalog.BuildCategories(uploaded);
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Uploaded games unavailable; showing bundled catalog"); }
+    }
+}

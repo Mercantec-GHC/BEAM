@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="BEAM game cover">
+<rect width="600" height="600" fill="#141c2c"/>
+<rect x="130" y="190" width="340" height="190" rx="65" fill="none" stroke="#94baff" stroke-width="12"/>
+<path d="M185 285h85m-43-43v85" stroke="#94baff" stroke-width="16"/>
+<circle cx="373" cy="265" r="14" fill="#94baff"/><circle cx="413" cy="308" r="14" fill="#94baff"/>
+<text x="300" y="475" text-anchor="middle" fill="#e8efff" font-family="Arial,sans-serif" font-size="54" font-weight="700">BEAM</text>
+</svg>

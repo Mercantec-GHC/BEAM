@@ -13,5 +13,6 @@ WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 COPY --from=build /app/publish .
+RUN mkdir -p /app/game-data && chown $APP_UID /app/game-data
 USER $APP_UID
 ENTRYPOINT ["dotnet", "BEAM.Web.dll"]

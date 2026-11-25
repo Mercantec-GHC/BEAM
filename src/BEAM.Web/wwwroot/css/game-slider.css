@@ -4,6 +4,8 @@
  * Five visible covers and two hidden buffers; no shadows, filters or reflections.
  */
 .carousel-page { min-height: 100svh; background: #101211; }
+.cover-flow .game-session { position: fixed; inset: 0; z-index: 100; background: #000; }
+.cover-flow .game-player { display: block; width: 100%; height: 100%; border: 0; }
 .cover-flow {
     --cover-size: min(72svh, 40vw);
     --slide-duration: 200ms;
@@ -68,17 +70,17 @@
 .cover-flow .game-cover img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .cover-flow .game-cover:focus { outline: none; }
 .cover-flow [hidden] { display: none !important; }
-/* Accessible selection announcements stay offscreen. */
+/* Keep the selected title visible even when a game has no uploaded artwork. */
 .cover-flow .selection-status {
     position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
+    bottom: 18px;
+    left: 16px;
+    right: 16px;
+    z-index: 20;
+    text-align: center;
+    color: #e4e8e1;
+    font: 500 16px/24px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    pointer-events: none;
 }
 .cover-flow .empty { padding: 120px 20px; text-align: center; color: #a0a69c; }
 @media (prefers-reduced-motion: reduce) {

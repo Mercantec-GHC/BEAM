@@ -1,10 +1,12 @@
 # BEAM
 
+Arcade cabinet: configure the physical return button as a USB keyboard input sending **F8**. During a game, F8 unloads the game and restores the carousel selection, including when the nested emulator has focus. The on-screen return button and emulator toolbar are hidden.
+
 A browser-game storefront built with .NET 10, Blazor Server, EF Core, PostgreSQL, and Aspire.
 
 ## Architecture
 
-Blazor components call `BEAM.DAL` repositories directly in the server process. There is no application API layer. `IDbContextFactory<BeamDbContext>` creates a short-lived EF Core context per operation, avoiding shared contexts across long-lived Blazor circuits.
+Blazor components call `BEAM.DAL` repositories directly in the server process. The static emulator player uses a read-only game configuration endpoint and streams uploaded assets from the server. `IDbContextFactory<BeamDbContext>` creates a short-lived EF Core context per operation, avoiding shared contexts across long-lived Blazor circuits.
 
 The online catalog uses PostgreSQL. Downloaded HTML/JavaScript/WebAssembly games execute inside the browser, independently of Blazor Server. A static PWA library and service worker provide offline launching. Game files are static assets, not API endpoints. The included BEAM Dodge game demonstrates online play, explicit offline download/removal, keyboard/touch controls, and a local best score.
 
@@ -61,13 +63,43 @@ To run the web project independently, configure `ConnectionStrings__beamdb` and,
 
 ## Game selector and categories
 
-Open `/GameSlider`. Left/Right browse games, Up cycles Homemade → ROMS → Arcade → Fighter, Down cycles in reverse, and Enter launches a playable selection. Each category remembers its selection. Category changes use a short CSS tilt/slide in the chosen direction; set `--category-duration: 0ms` in `game-slider.css` to disable that motion. Reduced-motion preferences disable it automatically.
+Open `/GameSlider`. It starts on **All games**, including saved uploads and the bundled BEAM Dodge game. Left/Right browse games, Up/Down cycle through nonempty categories (All games, Homemade, ROMS, Arcade, Fighter), and Enter launches the selection. Each category remembers its selection. Category changes use a short CSS tilt/slide in the chosen direction; set `--category-duration: 0ms` in `game-slider.css` to disable that motion. Reduced-motion preferences disable it automatically.
 
-The shared demo catalog is in `src/BEAM.Web/Data/demo-games.json`. A game's `categoryIds` can contain multiple tags, such as `["homemade", "fighter"]` or `["roms", "arcade", "racing"]`. `DemoGameCatalog` builds category views by filtering these tags; games retain the same ID, artwork, and launch target in every view. Add another `GameCategory.FromCatalog` entry there to expose a new tag as a selectable category.
+The bundled catalog in `src/BEAM.Web/Data/demo-games.json` contains BEAM Dodge. Saved uploads are read from PostgreSQL each time the selector opens and merged into the same category views. Every upload appears in All games and ROMS, plus its selected Arcade/Fighter categories. The library's **View saved game in selector** and **Show in selector** links open `/GameSlider?game=uploaded-<id>` with that game selected. Deleting a game removes it from the selector on its next visit.
 
-The demo has 20 unique games shared across four categories with exactly 10 entries each. Its SVG placeholder covers live in `wwwroot/images/games/placeholders`. Catalog JSON is embedded in the app, so rebuild after editing it. The frontend reuses seven image nodes (five visible covers and two hidden buffers) across all categories.
+Fictional demo entries and their cover assets have been removed. Uploaded covers are used when available; otherwise a neutral BEAM controller cover is shown. The frontend reuses seven image nodes (five visible covers and two hidden buffers) across all categories. Only changes to the bundled catalog require a rebuild; uploaded games do not.
 
 Run local checks with `node --test tests/carousel.test.cjs tests/catalog.test.cjs`. Set `BEAM_TEST_URL` to the running storefront URL to also verify rendered category membership and cover delivery.
+
+## EmulatorJS and Tekken Tag Tournament
+
+### Add games without changing code
+
+Open **Emulated games** in the navigation (`/emulated-games`). Enter a title, choose a system, upload the ROM, and optionally add a BIOS, cover and control notes. Select Arcade and/or Fighter to add those categories; every uploaded game appears in ROMS. Save the game, then launch it from the library, `/games`, or `/GameSlider`. Deleting an uploaded game removes its database entry and package files.
+
+The initial supported choices are NES, SNES, Game Boy/Color, Game Boy Advance, Mega Drive/Genesis, PlayStation, FinalBurn Neo and MAME 2003 Plus. File extensions and core compatibility hints appear in the form. Arcade ZIPs must be complete sets matching the chosen core. For PlayStation, use CHD/PBP or ZIP with CUE and BIN tracks. BIOS ZIPs can hold multiple required BIOS files. Controls can be mapped in EmulatorJS's menu; player notes are saved with the game, while mappings and emulator saves belong to the browser profile.
+
+Limits: ROM 512 MB, BIOS 32 MB, cover 5 MB (PNG/JPEG/WebP). Filenames may contain letters, numbers, dots, hyphens and underscores, up to 120 characters, without paths. Arcade ROM filenames are preserved because they identify the driver. The server checks formats/extensions and sizes, but only a real boot test can establish game compatibility.
+
+Metadata is stored in PostgreSQL through the `AddEmulatedGamePackages` migration. Uploaded files live outside `wwwroot`, in `src/BEAM.Web/App_Data/games` by default, or the absolute directory configured by `GameStorage__Path`. Docker Compose mounts the persistent `game-data` volume at `/app/game-data`; this survives rebuilds and normal `docker compose down`. Back up both PostgreSQL and game storage. Uploads are excluded from Git and Docker build context. This uses the same local, unauthenticated catalog management model as `/games`; uploaded assets are served to visitors who launch a game.
+
+Run `node tests/game-library-smoke.cjs` against a running migrated BEAM instance with `BEAM_TEST_URL` set to its URL. The test creates and removes its own game and checks upload validation, persistence, category membership, player configuration, range requests, restart and deletion. With `BEAM_REAL_EMULATOR=1`, it also boots an original generated NES cartridge through the actual CDN/core and checks its expected red backdrop. Install Playwright for the browser tests and `sharp` for that optional screenshot check. `BEAM_CHROMIUM_PATH` may point to an existing Chromium executable.
+
+For an arcade boot/input check, set `BEAM_ARCADE_ROM` to a complete ROM ZIP and run `node tests/arcade-boot.cjs`. Optional variables: `BEAM_ARCADE_CORE` (default `mame2003_plus`), `BEAM_ARCADE_TITLE`, and `BEAM_KEEP_GAME=1` to retain the uploaded entry. Alternatively, set `BEAM_ARCADE_GAME_URL` to an existing relative player URL to test without uploading again. Screenshots and core diagnostics go to `test-results/arcade`; review the screenshots to confirm gameplay beyond a successful core launch. Split arcade ZIPs may omit shared ROMs: supply a complete package including required parent-set files.
+
+### Standalone Tekken compatibility preview
+
+Select Tekken Tag in the game slider or open `/emulator/index.html`. Choose a local `tektagt.zip` (read by the browser, never uploaded), or place an authorized copy at `src/BEAM.Web/wwwroot/roms/tektagt.zip` before building/publishing. ROM ZIPs in that directory are ignored by Git. Installed ROMs are publicly served by the web app, so only deploy files you may distribute.
+
+The static launcher isolates EmulatorJS in an iframe, pins its CDN runtime to **4.2.3**, and selects **mame2003_plus** explicitly. Configure both players, coin, start, attack and tag controls through the emulator menu. Return to BEAM or restart using the buttons outside the iframe. The emulator is independent of the Blazor circuit.
+
+This first integration requires connectivity to the EmulatorJS CDN. It is not included in the Dodge offline download. The ROM must match the shipped core's driver/ROM definitions; current upstream MAME 2003 Plus compatibility does not guarantee that the older pinned WebAssembly build supports a particular game. Browser boot tests and target-machine playability tests are separate checks.
+
+**Tekken test result (2026-11-24):** the 4.2.3 MAME 2003 Plus WebAssembly core (Git `3a72dae`, RetroArch build June 14, 2025) rejects the linked `tektagt.zip` with `Game driver not found for tektagt!` and `Failed to load content`. The resulting RetroArch menu is not a successful Tekken boot. Tekken is therefore marked as a compatibility preview in the launcher. Making it playable requires a newer/custom EmulatorJS-compatible core containing the Namco System 12 driver, followed by another ROM audit and actual gameplay/performance verification. Merely renaming or replacing the ZIP will not add a missing driver.
+
+Run `node tests/emulator-smoke.cjs` with Playwright installed for launcher/error-path tests. Set `BEAM_TEKKEN_ROM` to an absolute path to `tektagt.zip` to additionally exercise the real CDN/core and save a screenshot and core log under `test-results/`. Set `BEAM_CHROMIUM_PATH` only when using an existing Chromium executable instead of Playwright's default browser. The test runs its own static server and does not require PostgreSQL.
+
+For core comparisons, `BEAM_EJS_TEST_DATA=https://cdn.emulatorjs.org/nightly/data/` redirects runtime requests only in the test browser; production stays pinned. Set `BEAM_TEKKEN_INSTALLED=1` to test the same archive through the installed-ROM URL instead of a local blob. The nightly core tested on the same date (Git `10d7085`, RetroArch build July 25, 2026) also reports a missing `tektagt` driver using the installed-ROM URL.
 
 ## PWA and offline games
 
