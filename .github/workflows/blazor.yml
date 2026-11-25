@@ -28,7 +28,7 @@ jobs:
       run: docker compose up -d
     - name: Wait for Database
       run: |
-        until docker compose exec -T database pg_isready -U username; do
+        until docker compose exec -T postgres pg_isready -U beam -d beam; do
           sleep 1
         done
       timeout-minutes: 1
