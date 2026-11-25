@@ -1,6 +1,9 @@
 @inject IJSRuntime JS
 
-<beam-cover-flow @key="Categories" class="cover-flow" aria-label="Game selector" aria-roledescription="carousel">
+<beam-cover-flow @key="Categories" class="cover-flow" data-initial-game="@InitialGameId" aria-label="Game selector" aria-roledescription="carousel">
+    <section class="game-session" aria-label="Running game" hidden>
+        <iframe class="game-player" title="Game" src="about:blank" allow="autoplay; gamepad"></iframe>
+    </section>
     @if (Categories.Count == 0)
     {
         <p class="empty">No categories yet.</p>
@@ -44,6 +47,7 @@
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<GameCategory> Categories { get; set; } = [];
+    [Parameter] public string? InitialGameId { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

@@ -31,8 +31,29 @@ namespace BEAM.DAL.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
                     NpgsqlPropertyBuilderExtensions.HasIdentityOptions(b.Property<int>("Id"), 1000L, null, null, null, null, null);
 
+                    b.Property<string>("BiosFileName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Categories")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ControlNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("CoverFileName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmulatorCore")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("LaunchPath")
                         .HasMaxLength(240)
@@ -40,6 +61,14 @@ namespace BEAM.DAL.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("PackageId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("RomFileName")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
@@ -51,6 +80,7 @@ namespace BEAM.DAL.Migrations
                         new
                         {
                             Id = 1,
+                            Categories = "roms",
                             CreatedAtUtc = new DateTime(2026, 11, 19, 0, 0, 0, 0, DateTimeKind.Utc),
                             LaunchPath = "/games/beam-dodge/index.html",
                             Name = "BEAM Dodge"

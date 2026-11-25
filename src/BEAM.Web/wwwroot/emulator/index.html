@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Tekken Tag Tournament · BEAM</title>
+    <link rel="stylesheet" href="player.css">
+</head>
+<body>
+    <header><a href="/GameSlider">← Return to BEAM</a><a href="/emulated-games">Game library</a><h1>Tekken Tag Tournament</h1></header>
+    <main>
+        <p id="game-warning" role="note" hidden></p>
+        <p id="control-notes" hidden></p>
+        <section id="setup">
+            <p><strong>Compatibility preview:</strong> Tekken Tag does not boot with the bundled emulator core: its game driver is missing. This launcher is available for testing a compatible core; selecting a different ROM cannot add the missing driver.</p>
+            <p>Play the arcade version using EmulatorJS. Choose your <strong>tektagt.zip</strong> ROM, or start with the installed copy.</p>
+            <label for="rom">Tekken Tag ROM (.zip)</label>
+            <input id="rom" type="file" accept=".zip">
+            <button id="start" type="button">Start Tekken Tag</button>
+            <p>Use the emulator’s control settings to map both players, coin, start, attacks and tag. A gamepad or arcade controller is recommended.</p>
+            <p>This player requires an internet connection. ROM selection stays on this device.</p>
+        </section>
+        <p id="status" role="status" aria-live="polite">Ready. Select a ROM or use the installed copy.</p>
+        <iframe id="player" title="Tekken Tag Tournament emulator" src="about:blank" allow="autoplay; fullscreen; gamepad" hidden></iframe>
+        <button id="retry" type="button" hidden>Choose another ROM / restart</button>
+    </main>
+    <script src="launcher.js"></script>
+</body>
+</html>

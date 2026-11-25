@@ -28,13 +28,56 @@ class BeamCoverFlow extends HTMLElement {
         const remembered = new Array(categories.length).fill(0);
         let categoryIndex = 0;
         let games = categories[0].games;
-        let selected = 0;
+        let selected = Math.max(0, games.findIndex(game => game.id === this.dataset.initialGame));
         let pending = 0;
         let start = null;
         let dragged = false;
         let pointerId = null;
         let lastRepeatedKey = -Infinity;
         let categoryMotion = false;
+        const session = this.querySelector('.game-session');
+        const player = this.querySelector('.game-player');
+        const launch = () => {
+            const game = games.length ? games[mod(selected + pending, games.length)] : null;
+            if (!game?.launch || !session || !player) return;
+            const url = new URL(game.launch, window.location.href);
+            url.searchParams.set('arcade', '1');
+            player.title = game.title;
+            player.src = url.href;
+            session.hidden = false;
+            stage.inert = true;
+            player.focus();
+        };
+        const returnToGames = () => {
+            if (!session || session.hidden) return;
+            session.hidden = true;
+            player.src = 'about:blank';
+            stage.inert = false;
+            stage.focus({ preventScroll: true });
+        };
+        const returnKey = event => {
+            if (event.key !== 'F8' || session?.hidden) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            returnToGames();
+        };
+        // Keyboard events do not cross iframe boundaries. Attach to each same-origin
+        // game document, including the emulator's nested runtime, as it loads.
+        const boundDocuments = new WeakSet();
+        const bindReturnKey = frame => {
+            try {
+                const doc = frame.contentDocument;
+                if (!doc || boundDocuments.has(doc)) return;
+                boundDocuments.add(doc);
+                doc.defaultView.addEventListener('keydown', returnKey, { ...options, capture: true });
+                doc.addEventListener('load', event => {
+                    if (event.target.tagName === 'IFRAME') bindReturnKey(event.target);
+                }, { ...options, capture: true });
+                doc.querySelectorAll('iframe').forEach(bindReturnKey);
+            } catch { /* External games cannot expose their keyboard events. */ }
+        };
+        player?.addEventListener('load', () => bindReturnKey(player), options);
+        window.addEventListener('keydown', returnKey, { ...options, capture: true });
 
         const paint = (delta, reset = false) => {
             // Only seven image nodes are reused across all categories. CSS owns motion;
@@ -111,6 +154,7 @@ class BeamCoverFlow extends HTMLElement {
             stage.focus({ preventScroll: true });
         };
         this.addEventListener('keydown', event => {
+            if (session && !session.hidden) return;
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
                 event.preventDefault();
                 if (!event.repeat) switchCategory(event.key === 'ArrowUp' ? 1 : -1);
@@ -125,8 +169,7 @@ class BeamCoverFlow extends HTMLElement {
                 return;
             } else if (event.key === 'Enter') {
                 event.preventDefault();
-                const game = games.length ? games[mod(selected + pending, games.length)] : null;
-                if (game?.launch) window.location.assign(game.launch);
+                if (!event.repeat) launch();
                 return;
             } else return;
             event.preventDefault();
@@ -138,7 +181,10 @@ class BeamCoverFlow extends HTMLElement {
         stage.addEventListener('click', event => {
             if (dragged) { dragged = false; return; }
             const card = event.target.closest('.game-cover');
-            if (card) move(Number(card.dataset.slot));
+            if (card) {
+                if (Number(card.dataset.slot) === 0) launch();
+                else move(Number(card.dataset.slot));
+            }
         }, options);
         stage.addEventListener('pointerdown', event => {
             if (!event.isPrimary || event.button !== 0) return;

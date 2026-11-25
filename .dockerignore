@@ -7,3 +7,5 @@ Branding
 **/*.user
 **/*.suo
 .env
+**/App_Data
+test-results

@@ -7,13 +7,22 @@ public static class DemoGameCatalog
 {
     public static IReadOnlyList<GameCover> Games { get; } = LoadGames();
 
-    public static IReadOnlyList<GameCategory> Categories { get; } =
-    [
-        GameCategory.FromCatalog("homemade", "Homemade", Games),
-        GameCategory.FromCatalog("roms", "ROMS", Games),
-        GameCategory.FromCatalog("arcade", "Arcade", Games),
-        GameCategory.FromCatalog("fighter", "Fighter", Games)
-    ];
+    public static IReadOnlyList<GameCategory> Categories { get; } = BuildCategories([]);
+
+    public static IReadOnlyList<GameCategory> BuildCategories(IEnumerable<GameCover> uploaded)
+    {
+        var games = Games.Concat(uploaded).Where(game => !string.IsNullOrWhiteSpace(game.LaunchUrl))
+            .OrderBy(game => game.Title, StringComparer.OrdinalIgnoreCase).ToArray();
+        GameCategory[] categories =
+        [
+            new("all", "All games", games),
+            GameCategory.FromCatalog("homemade", "Homemade", games),
+            GameCategory.FromCatalog("roms", "ROMS", games),
+            GameCategory.FromCatalog("arcade", "Arcade", games),
+            GameCategory.FromCatalog("fighter", "Fighter", games)
+        ];
+        return categories.Where(category => category.Id == "all" || category.Games.Count > 0).ToArray();
+    }
 
     private static GameCover[] LoadGames()
     {

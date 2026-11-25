@@ -12,7 +12,9 @@ window.addEventListener('keyup', event => keys.delete(event.key));
 window.addEventListener('blur', () => keys.clear());
 function move(event) {
     const rect = canvas.getBoundingClientRect();
-    x = Math.max(0, Math.min(440, (event.clientX - rect.left) * 480 / rect.width - 20));
+    const width = Math.min(rect.width, rect.height * 480 / 540);
+    const left = rect.left + (rect.width - width) / 2;
+    x = Math.max(0, Math.min(440, (event.clientX - left) * 480 / width - 20));
 }
 canvas.onpointerdown = event => { canvas.setPointerCapture(event.pointerId); move(event); };
 canvas.onpointermove = event => { if (event.buttons) move(event); };
