@@ -16,7 +16,7 @@ Install Docker Desktop with Linux containers enabled. On first setup:
 Copy-Item .env.example .env
 ```
 
-Set a local `POSTGRES_PASSWORD` in `.env`, then:
+The database password defaults to `beam`; set `POSTGRES_PASSWORD` in `.env` to override it. Then:
 
 ```powershell
 docker compose up --build -d

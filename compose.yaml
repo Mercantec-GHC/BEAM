@@ -11,7 +11,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       HttpsRedirection__Enabled: "false"
       HealthChecks__Enabled: "true"
-      ConnectionStrings__beamdb: "Host=postgres;Port=5432;Database=beam;Username=beam;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      ConnectionStrings__beamdb: "Host=postgres;Port=5432;Database=beam;Username=beam;Password=${POSTGRES_PASSWORD:-beam}"
       Database__ApplyMigrations: "true"
       OTEL_SERVICE_NAME: beam-web
       OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
@@ -27,7 +27,7 @@ services:
     environment:
       POSTGRES_DB: beam
       POSTGRES_USER: beam
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-beam}"
     ports:
       - "127.0.0.1:${BEAM_POSTGRES_PORT:-5432}:5432"
     volumes:
