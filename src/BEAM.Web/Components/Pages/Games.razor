@@ -2,9 +2,11 @@
 @using BEAM.DAL
 @inject GameRepository Repository
 @inject ILogger<Games> Logger
+@inject GameAssetStore Storage
 
 <PageTitle>Games | BEAM</PageTitle>
 <h1>Games</h1>
+<a class="btn btn-primary mb-3" href="/emulated-games">Upload emulated games</a>
 <p>Your catalog is stored in local PostgreSQL. Download browser games in your library to play without a connection.</p>
 <a class="btn btn-outline-primary mb-3" href="/play/index.html" data-enhance-nav="false">Open downloadable library</a>
 
@@ -74,7 +76,9 @@ else
 
     private async Task DeleteAsync(int id) => await RunAsync(async () =>
     {
+        var game = await Repository.FindAsync(id);
         await Repository.DeleteAsync(id);
+        Storage.Remove(game?.PackageId);
         games = await Repository.ListAsync();
     });
 

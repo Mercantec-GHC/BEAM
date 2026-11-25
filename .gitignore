@@ -481,3 +481,6 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 *.af~lock~
+# Local arcade ROMs are supplied separately, never committed.
+src/BEAM.Web/App_Data/
+src/BEAM.Web/wwwroot/roms/*.zip

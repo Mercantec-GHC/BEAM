@@ -13,9 +13,12 @@ services:
       HealthChecks__Enabled: "true"
       ConnectionStrings__beamdb: "Host=postgres;Port=5432;Database=beam;Username=beam;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
       Database__ApplyMigrations: "true"
+      GameStorage__Path: /app/game-data
       OTEL_SERVICE_NAME: beam-web
       OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+    volumes:
+      - game-data:/app/game-data
     depends_on:
       dashboard:
         condition: service_started
@@ -46,4 +49,5 @@ services:
       DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
 
 volumes:
+  game-data:
   postgres-data:
